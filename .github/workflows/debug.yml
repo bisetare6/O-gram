@@ -48,7 +48,7 @@ jobs:
             TMessagesProj/jni/ffmpeg/build
             TMessagesProj/jni/boringssl/build
             TMessagesProj/src/main/libs
-          key: native-libs-cache-v1
+          key: native-libs-cache-v2
 
       - name: Build Native Libraries (If not cached)
         if: steps.native-cache.outputs.cache-hit != 'true'
@@ -63,12 +63,20 @@ jobs:
           ./run init libs dav1d
           ./run init libs ffmpeg
 
-      - name: Patch Signing Configuration In Project Files
+      - name: Phase 2 Rebranding (Rename to O-gram)
         run: |
-          # خنثی‌سازی ارجاع به ریلیز و جایگزینی مستقیم با کلید معتبر دیباگ اندروید
+          # تغییر نام برنامه در تمام فایل‌های زبان پروژه به O-gram
+          find TMessagesProj/src/main/res -name "strings.xml" -exec sed -i 's/<string name="AppName">.*<\/string>/<string name="AppName">O-gram<\/string>/g' {} +
+          find TMessagesProj/src/main/res -name "strings.xml" -exec sed -i 's/<string name="AppNameBeta">.*<\/string>/<string name="AppNameBeta">O-gram<\/string>/g' {} +
+
+      - name: Patch Signing & Universal ABI (LDPlayer Support)
+        run: |
+          # فعال‌سازی معماری ۳۲ بیتی جهت اجرای پایدار روی شبیه‌ساز LDPlayer
+          sed -i "s/abiFilters .*/abiFilters 'armeabi-v7a', 'arm64-v8a'/g" TMessagesProj/build.gradle || true
+          
+          # تثبیت امضای دیباگ و جلوگیری از خطای storePassword
           sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/g' TMessagesProj/build.gradle || true
           
-          # ثبت متغیرهای سیستمی جهت رفع خطای NullPointer در هر جای پروژه
           echo "RELEASE_STORE_FILE=" >> gradle.properties
           echo "RELEASE_STORE_PASSWORD=android" >> gradle.properties
           echo "RELEASE_KEY_ALIAS=androiddebugkey" >> gradle.properties
@@ -81,11 +89,11 @@ jobs:
       - name: Build O-gram APK
         run: ./gradlew :TMessagesProj:assembleDebug -x test -x lint -PoverrideSigning=debug --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: O-gram-Debug-APK
+          name: O-gram-Debug-Universal-APK
           path: |
             TMessagesProj/build/outputs/apk/**/*.apk
             build/outputs/apk/**/*.apk
