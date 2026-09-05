@@ -63,20 +63,47 @@ jobs:
           ./run init libs dav1d
           ./run init libs ffmpeg
 
-      - name: Phase 2 Rebranding (Rename to O-gram)
+      - name: Rebrand to O-gram & Force Universal APK
         run: |
-          # تغییر نام برنامه در تمام فایل‌های زبان پروژه به O-gram
-          find TMessagesProj/src/main/res -name "strings.xml" -exec sed -i 's/<string name="AppName">.*<\/string>/<string name="AppName">O-gram<\/string>/g' {} +
-          find TMessagesProj/src/main/res -name "strings.xml" -exec sed -i 's/<string name="AppNameBeta">.*<\/string>/<string name="AppNameBeta">O-gram<\/string>/g' {} +
+          python3 -c '
+          import os, re
 
-      - name: Patch Signing & Universal ABI (LDPlayer Support)
+          # ۱. تغییر نام در تمام فایل‌های متنی پروژه
+          for root, dirs, files in os.walk("TMessagesProj/src/main/res"):
+              for f in files:
+                  if f == "strings.xml":
+                      p = os.path.join(root, f)
+                      with open(p, "r", encoding="utf-8", errors="ignore") as file:
+                          txt = file.read()
+                      txt = re.sub(r"<string name=\"(AppName|AppNameBeta|app_name)\"[^>]*>.*?</string>", r"<string name=\"\1\" translatable=\"false\">O-gram</string>", txt)
+                      with open(p, "w", encoding="utf-8") as file:
+                          file.write(txt)
+
+          # ۲. تثبیت نام نمایشی در مانیفست اندروید
+          manifest = "TMessagesProj/src/main/AndroidManifest.xml"
+          if os.path.exists(manifest):
+              with open(manifest, "r", encoding="utf-8") as f:
+                  m = f.read()
+              m = re.sub(r"android:label=\"[^\"]*\"", "android:label=\"O-gram\"", m, count=1)
+              with open(manifest, "w", encoding="utf-8") as f:
+                  f.write(m)
+
+          # ۳. فعال‌سازی ساخت فایل Universal (سازگار با شبیه‌ساز)
+          gradle_file = "TMessagesProj/build.gradle"
+          if os.path.exists(gradle_file):
+              with open(gradle_file, "r", encoding="utf-8") as f:
+                  g = f.read()
+              if "universalApk" in g:
+                  g = re.sub(r"universalApk\s+false", "universalApk true", g)
+              elif "abi {" in g:
+                  g = g.replace("abi {", "abi {\n            universalApk true")
+              with open(gradle_file, "w", encoding="utf-8") as f:
+                  f.write(g)
+          '
+
+      - name: Patch Signing Configuration
         run: |
-          # فعال‌سازی معماری ۳۲ بیتی جهت اجرای پایدار روی شبیه‌ساز LDPlayer
-          sed -i "s/abiFilters .*/abiFilters 'armeabi-v7a', 'arm64-v8a'/g" TMessagesProj/build.gradle || true
-          
-          # تثبیت امضای دیباگ و جلوگیری از خطای storePassword
           sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/g' TMessagesProj/build.gradle || true
-          
           echo "RELEASE_STORE_FILE=" >> gradle.properties
           echo "RELEASE_STORE_PASSWORD=android" >> gradle.properties
           echo "RELEASE_KEY_ALIAS=androiddebugkey" >> gradle.properties
