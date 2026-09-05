@@ -55,14 +55,44 @@ jobs:
           ./run init libs dav1d
           ./run init libs ffmpeg
 
-      - name: Configure Gradle Environment
+      - name: Generate Local Signing Key & Inject Config
         run: |
+          keytool -genkey -v -keystore /tmp/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          
+          cat << 'EOF' > /tmp/init-signing.gradle
+          allprojects {
+              plugins.withId('com.android.application') {
+                  android {
+                      signingConfigs {
+                          release {
+                              storeFile file('/tmp/debug.keystore')
+                              storePassword 'android'
+                              keyAlias 'androiddebugkey'
+                              keyPassword 'android'
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat << 'EOF' >> gradle.properties
+          RELEASE_STORE_FILE=/tmp/debug.keystore
+          RELEASE_STORE_PASSWORD=android
+          RELEASE_KEY_ALIAS=androiddebugkey
+          RELEASE_KEY_PASSWORD=android
+          storeFile=/tmp/debug.keystore
+          storePassword=android
+          keyAlias=androiddebugkey
+          keyPassword=android
+          EOF
+
           sed -i 's/\/\///g' settings.gradle
           sed -i "s/2000000000000/$(date +%s%N | cut -c1-13)/g" gradle.properties
           echo "sdk.dir=${ANDROID_HOME}" >> local.properties
 
       - name: Build O-gram APK
-        run: ./gradlew :TMessagesProj:assembleDebug -x test -x lint --stacktrace
+        run: ./gradlew :TMessagesProj:assembleDebug --init-script /tmp/init-signing.gradle -x test -x lint --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
