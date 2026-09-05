@@ -28,7 +28,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build APK with Gradle
-        run: ./gradlew assembleAfatRelease -x test --stacktrace
+        run: ./gradlew assembleRelease -x test --stacktrace
         env:
           BUILD_NUMBER: 1
 
@@ -36,4 +36,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: O-gram-APK
-          path: TMessagesProj/build/outputs/apk/**/*.apk
+          path: |
+            TMessagesProj/build/outputs/apk/**/*.apk
+            build/outputs/apk/**/*.apk
