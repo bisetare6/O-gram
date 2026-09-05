@@ -12,23 +12,40 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 1
 
-      - name: Set up JDK 21
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
 
       - name: Set up Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26b
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Install System Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yasm nasm ninja-build
 
-      - name: Build Debug APK
-        run: ./gradlew :TMessagesProj:assembleDebug -x test -x lint -x check --stacktrace -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m"
+      - name: Grant execute permissions
+        run: |
+          chmod +x gradlew
+          find TMessagesProj/jni -name "*.sh" -exec chmod +x {} + || true
+
+      - name: Build Native FFmpeg Dependencies
+        run: |
+          if [ -f "TMessagesProj/jni/build_ffmpeg.sh" ]; then
+            cd TMessagesProj/jni && ./build_ffmpeg.sh
+          elif [ -f "build_ffmpeg.sh" ]; then
+            ./build_ffmpeg.sh
+          fi
+        continue-on-error: true
+
+      - name: Build APK with Gradle
+        run: ./gradlew assembleAfatStandalone -x test -x lint --stacktrace
         env:
           BUILD_NUMBER: 1
 
@@ -36,7 +53,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: O-gram-Debug-APK
+          name: O-gram-APK
           path: |
             TMessagesProj/build/outputs/apk/**/*.apk
             build/outputs/apk/**/*.apk
