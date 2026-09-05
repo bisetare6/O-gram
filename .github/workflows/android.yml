@@ -28,7 +28,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build APK with Gradle
-        run: ./gradlew assembleRelease -x test --stacktrace
+        run: ./gradlew :TMessagesProj:assembleRelease -x test --stacktrace
         env:
           BUILD_NUMBER: 1
 
