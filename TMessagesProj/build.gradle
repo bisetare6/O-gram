@@ -144,8 +144,7 @@ android {
         coreLibraryDesugaringEnabled true
     }
 
-    splits {
-
+       splits {
         abi {
             if (targetTask.contains("fdroid")) {
                 enable false
@@ -153,15 +152,10 @@ android {
             } else {
                 enable true
                 reset()
-                universalApk false
-                if (!nativeTarget.isBlank()) {
-                    include nativeTarget
-                } else {
-                    include 'armeabi-v7a', 'arm64-v8a'
-                }
+                universalApk true
+                include 'armeabi-v7a', 'arm64-v8a'
             }
         }
-
     }
 
     defaultConfig {
