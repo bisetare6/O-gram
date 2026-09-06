@@ -15,12 +15,13 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Setup Swap Space & System Tools
+      - name: Setup Extra Swap & System Tools
         run: |
-          sudo fallocate -l 4G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          # ایجاد حافظه مجازی مکمل بدون تداخل با سواپ پیش‌فرض سیستم
+          sudo fallocate -l 4G /swapfile_extra || sudo dd if=/dev/zero of=/swapfile_extra bs=1M count=4096
+          sudo chmod 600 /swapfile_extra
+          sudo mkswap /swapfile_extra
+          sudo swapon /swapfile_extra
           sudo apt-get update
           sudo apt-get install -y yasm nasm ninja-build python3
 
@@ -58,17 +59,17 @@ jobs:
 
       - name: Deep Rebrand to O-gram
         run: |
-          # ۱. تغییر نام در تمام مقادیر متنی
+          # تغییر نام در تمام فایل‌های متنی
           sed -i 's/>Nagram</>O-gram</g' TMessagesProj/src/main/res/values/strings.xml
           sed -i 's/>Telegram</>O-gram</g' TMessagesProj/src/main/res/values/strings.xml
           sed -i 's/<string name="AppName"[^>]*>.*<\/string>/<string name="AppName" translatable="false">O-gram<\/string>/g' TMessagesProj/src/main/res/values/strings.xml
           sed -i 's/<string name="AppNameBeta"[^>]*>.*<\/string>/<string name="AppNameBeta" translatable="false">O-gram<\/string>/g' TMessagesProj/src/main/res/values/strings.xml
 
-          # ۲. جایگزینی مستقیم نام نمایشی لانچر در AndroidManifest
+          # تثبیت نام نمایشی در مانیفست
           sed -i 's/android:label="@string\/AppName"/android:label="O-gram"/g' TMessagesProj/src/main/AndroidManifest.xml
           sed -i 's/android:label="@string\/AppNameBeta"/android:label="O-gram"/g' TMessagesProj/src/main/AndroidManifest.xml
 
-      - name: Patch Signing & Configure Dual-ABI Build
+      - name: Patch Signing & Build Properties
         run: |
           sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/g' TMessagesProj/build.gradle || true
           
@@ -76,7 +77,7 @@ jobs:
           echo "RELEASE_STORE_PASSWORD=android" >> gradle.properties
           echo "RELEASE_KEY_ALIAS=androiddebugkey" >> gradle.properties
           echo "RELEASE_KEY_PASSWORD=android" >> gradle.properties
-          echo "org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=512m" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m" >> gradle.properties
           sed -i 's/\/\///g' settings.gradle
           sed -i "s/2000000000000/$(date +%s%N | cut -c1-13)/g" gradle.properties
           echo "sdk.dir=${ANDROID_HOME}" >> local.properties
