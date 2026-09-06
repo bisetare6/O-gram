@@ -63,47 +63,20 @@ jobs:
           ./run init libs dav1d
           ./run init libs ffmpeg
 
-      - name: Rebrand to O-gram & Force Universal APK
+      - name: Clean Rebrand to O-gram
         run: |
-          python3 -c '
-          import os, re
+          # تغییر نام فقط در فایل مرجع اصلی بدون دستکاری فایل‌های زبان‌های دیگر
+          sed -i 's/>Nagram</>O-gram</g' TMessagesProj/src/main/res/values/strings.xml
+          sed -i 's/>Telegram</>O-gram</g' TMessagesProj/src/main/res/values/strings.xml
+          sed -i 's/<string name="AppName".*<\/string>/<string name="AppName" translatable="false">O-gram<\/string>/g' TMessagesProj/src/main/res/values/strings.xml
+          sed -i 's/<string name="AppNameBeta".*<\/string>/<string name="AppNameBeta" translatable="false">O-gram<\/string>/g' TMessagesProj/src/main/res/values/strings.xml
 
-          # ۱. تغییر نام در تمام فایل‌های متنی پروژه
-          for root, dirs, files in os.walk("TMessagesProj/src/main/res"):
-              for f in files:
-                  if f == "strings.xml":
-                      p = os.path.join(root, f)
-                      with open(p, "r", encoding="utf-8", errors="ignore") as file:
-                          txt = file.read()
-                      txt = re.sub(r"<string name=\"(AppName|AppNameBeta|app_name)\"[^>]*>.*?</string>", r"<string name=\"\1\" translatable=\"false\">O-gram</string>", txt)
-                      with open(p, "w", encoding="utf-8") as file:
-                          file.write(txt)
-
-          # ۲. تثبیت نام نمایشی در مانیفست اندروید
-          manifest = "TMessagesProj/src/main/AndroidManifest.xml"
-          if os.path.exists(manifest):
-              with open(manifest, "r", encoding="utf-8") as f:
-                  m = f.read()
-              m = re.sub(r"android:label=\"[^\"]*\"", "android:label=\"O-gram\"", m, count=1)
-              with open(manifest, "w", encoding="utf-8") as f:
-                  f.write(m)
-
-          # ۳. فعال‌سازی ساخت فایل Universal (سازگار با شبیه‌ساز)
-          gradle_file = "TMessagesProj/build.gradle"
-          if os.path.exists(gradle_file):
-              with open(gradle_file, "r", encoding="utf-8") as f:
-                  g = f.read()
-              if "universalApk" in g:
-                  g = re.sub(r"universalApk\s+false", "universalApk true", g)
-              elif "abi {" in g:
-                  g = g.replace("abi {", "abi {\n            universalApk true")
-              with open(gradle_file, "w", encoding="utf-8") as f:
-                  f.write(g)
-          '
-
-      - name: Patch Signing Configuration
+      - name: Enable Universal APK & Patch Signing
         run: |
+          # فعال‌سازی ساخت APK فراگیر و پشتیبانی از LDPlayer
+          sed -i 's/universalApk false/universalApk true/g' TMessagesProj/build.gradle || true
           sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/g' TMessagesProj/build.gradle || true
+          
           echo "RELEASE_STORE_FILE=" >> gradle.properties
           echo "RELEASE_STORE_PASSWORD=android" >> gradle.properties
           echo "RELEASE_KEY_ALIAS=androiddebugkey" >> gradle.properties
@@ -120,7 +93,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: O-gram-Debug-Universal-APK
+          name: O-gram-Debug-APKs
           path: |
             TMessagesProj/build/outputs/apk/**/*.apk
             build/outputs/apk/**/*.apk
